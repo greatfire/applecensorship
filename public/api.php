@@ -1,67 +1,82 @@
 <?php
 require '../inc/main.inc';
 
-function fatal($message) {
-	header('HTTP/1.1 500 Internal Server Error: ' . $message);
-	exit;
-}
-
 const CACHE_EXPIRY = 86400;
 
 $url = ITUNES_API_URL;
-if(!isset($_GET['callback'])) {
-	fatal('Missing callback string');
+if (! isset($_GET['callback'])) {
+    fatal('Missing callback string');
 }
 define('CALLBACK', $_GET['callback']);
 unset($_GET['callback']);
-if(!isset($_SERVER['QUERY_STRING'])) {
-	fatal('Missing query string');
+
+$request = [];
+foreach (VALID_REQUEST_KEYS as $key) {
+    if (isset($_GET[$key])) {
+        $request[$key] = $_GET[$key];
+    }
 }
 
-$url .= '?' . http_build_query($_GET);
+$url .= '?' . http_build_query($request);
 
-function getJson($url) {
-	$cache_key = str_replace('/', '_', base64_encode($url));
-	$cache_path = '../cache/' . $cache_key;
-	if(is_file($cache_path)) {
-		$cachemago = time() - filemtime($cache_path);
-		if($cachemago < CACHE_EXPIRY) {
-			return file_get_contents($cache_path);
-			exit;
-		}
-	}
+function getJson()
+{
+    global $mongodb_manager, $request, $url;
 
-	for($i = 0; $i < 99; $i++) {
-		$timeout = 10 + pow($i, 2);
-		$ch = curl_init();
-		curl_setopt($ch, CURLOPT_URL, $url);
-		curl_setopt($ch, CURLOPT_PROXY, PROXY);
-		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-		$json = curl_exec($ch);
-		curl_close($ch);
+    $filter = [
+        'request' => $request,
+	'source' => 'server',
+	'ts' => [
+            '$gt' => time() - CACHE_EXPIRY
+        ]
+    ];
+    $options = [
+        'limit' => 1,
+        'sort' => [
+            'ts' => - 1
+        ]
+    ];
+    $mongodb_query = new MongoDB\Driver\Query($filter, $options);
+    $rows = $mongodb_manager->executeQuery(MONGODB_COLLECTION, $mongodb_query);
+    foreach ($rows as $row) {
+        if (isset($row->response)) {
+            $json = json_encode($row->response);
+            return $json;
+        }
+    }
 
-		$data = json_decode($json);
-		if(!$data) {
-			continue;
-		}
+    for ($i = 0; $i < 99; $i ++) {
+        $timeout = 10 + pow($i, 2);
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_PROXY, PROXY);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        $json = curl_exec($ch);
+        curl_close($ch);
 
-		if(!isset($data->resultCount)) {
-			continue;
-		}
+        $response = json_decode($json);
+        if (! $response) {
+            continue;
+        }
 
-		file_put_contents($cache_path, $json);
-		return $json;
-	}
+        if (! isset($response->resultCount)) {
+            continue;
+        }
+
+	save_request_response($request, $response, 'server');
+
+        return $json;
+    }
 }
 
 $json = getJson($url);
-if($json) {
-	print CALLBACK;
-	print '(';
-	print trim($json);
-	print ');';
+if ($json) {
+    print CALLBACK;
+    print '(';
+    print trim($json);
+    print ');';
 } else {
-	fatal('empty response');
+    fatal('empty response');
 }

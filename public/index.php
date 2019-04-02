@@ -1,101 +1,6 @@
 <?php
-require '../inc/main.inc';
+require 'template.php';
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>Apple Censorship</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body {
-	font-family: sans-serif;
-}
-h1 a, h2 a {
-	color: black;
-	text-decoration: none;
-}
-h1 {
-	margin-bottom: 0;
-}
-h2 {
-	margin-top: 0;
-}
-#search input {
-	box-sizing: border-box;
-	font-size: 150%;
-	max-width: 100%;
-	padding: 1%;
-}
-table {
-	max-width: 100%;
-}
-tbody {
-	word-break: break-all;
-}
-th, td {
-	padding: 1%;
-}
-th {
-	cursor: pointer;
-	text-align: left;
-}
-th select {
-	max-width: 50px;
-}
-td.a {
-	border: solid 2px green;
-}
-td.na {
-	border: solid 2px red;
-	font-weight: bold;
-}
-td img {
-	max-width: 50px;
-}
-
-#feedback {
-	margin-top: 100px;
-}
-#feedback span {
-	cursor: pointer;
-	text-decoration: underline;
-}
-#feedback textarea, #feedback input {
-	border-radius: 5px;
-	box-sizing: border-box;
-	display: block;
-	margin-bottom: 5px;
-	max-width: 100%;
-	padding: 5px;
-	width: 400px;
-}
-#feedback button {
-	display: block;
-}
-</style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mithril/1.1.6/mithril.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.17/vue.min.js"></script>
-<script>
-(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
-
-ga('create', 'UA-26222920-44', 'auto');
-ga('send', 'pageview');
-</script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'UA-26222920-44');
-</script>
-</head>
-<body>
-	<h1><a href="/">Apple Censorship</a></h1>
-	<h2>by <a href="https://greatfire.org/" target="_blank">GreatFire<a></h2>
 	<div id="app">
 		<div id="search"><input type="text" v-model="term" @input="searchAll" ref="term" autofocus placeholder="Search the App Store"></div>
 		<table>
@@ -112,9 +17,9 @@ ga('send', 'pageview');
 				<tr v-for="app in apps">
 					<td v-for="appTerritory in app.territories" v-bind:class="{ a: appTerritory.available === true, na: appTerritory.available === false }">
 						<span v-if="appTerritory.available === true">
-							<a :href="'https://itunes.apple.com/' + appTerritory.territory.code.toLowerCase() + '/app/' + appTerritory.name + '/id' + app.id" target="_blank">{{ appTerritory.name }}</a><span v-if="appTerritory.ranking"> ({{ appTerritory.ranking }})</span>
+							<a :href="'/app/' + app.id">{{ appTerritory.name }}</a><span v-if="appTerritory.ranking"> ({{ appTerritory.ranking }})</span>
 						</span>
-						<a v-if="appTerritory.available === false" :href="'https://itunes.apple.com/' + appTerritory.territory.code.toLowerCase() + '/app/' + app.name + '/id' + app.id" target="_blank">N/A</a>
+						<a v-if="appTerritory.available === false" :href="'/app/' + app.id">N/A</a>
 						<img v-if="appTerritory.available === null" src="ajax-loader.gif">
 						<span v-if="appTerritory.available === -1">error</span>
 					</td>
@@ -141,6 +46,11 @@ ga('send', 'pageview');
 				<button @click.stop="send_feedback()">Send</button>
 			</div>
 		</div>
+		<div>
+			<a href="https://github.com/greatfire/applecensorship" target="_blank">
+				<img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="80px">
+			</a>
+		</div>
 	</div>
 	<script>
 	var api_urls = ['<?php print ITUNES_API_URL ?>', 'api.php'];
@@ -149,7 +59,9 @@ ga('send', 'pageview');
 	var search_to;
 
 	function jsonp(params, then, fail, urls_remaining) {
+		var save = false;
 		if(urls_remaining == undefined) {
+			save = true;
 			urls_remaining = api_urls.slice();
 		} else if(urls_remaining.length == 0) {
 			console.error('No remaining urls', params);
@@ -159,9 +71,38 @@ ga('send', 'pageview');
 		var url = urls_remaining.shift();
 		return m.jsonp(url, {
 			data: params
-		}).then(then).catch(function(err) {
+		}).then(function(response) {
+			if(save) {
+				save_data = params;
+				save_data.response = JSON.stringify(response);
+				post('save.php', save_data, function() {
+				});
+			}
+			then(response);
+		}).catch(function(err) {
 			jsonp(params, then, fail, urls_remaining);
 		});
+	}
+
+	function post(url, data, success) {
+		var params = typeof data == 'string' ? data : Object.keys(data).map(
+			function(k) {
+				return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]);
+			}
+		).join('&');
+
+		var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+		xhr.open('POST', url);
+		xhr.onreadystatechange = function() {
+			if(xhr.readyState > 3 && xhr.status == 200) {
+				success(xhr.responseText);
+				ga('send', 'event', 'post', md5(params));
+			}
+		};
+		xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+		xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+		xhr.send(params);
+		return xhr;
 	}
 
 	new Vue({
@@ -268,7 +209,7 @@ ga('send', 'pageview');
 				var search_promises = [];
 				this.loading = true;
 				search_to = setTimeout(() => {
-					gtag('event', 'search', {'event_category': this.term});
+					ga('send', 'event', 'search', this.term);
 					for(var t = 0; t < this.territoriesActive.length; t++) {
 						if(territory_filter && territory_filter != this.territoriesActive[t]) {
 							continue;
@@ -400,5 +341,3 @@ ga('send', 'pageview');
 		}
 	});
 	</script>
-</body>
-</html>
