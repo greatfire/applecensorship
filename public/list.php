@@ -1,13 +1,13 @@
 <?php
 require 'template.php';
 
-$country = 'CN';
+$territory = 'CN';
 if(isset($_GET['c'])) {
-	$country = (string)$_GET['c'];
+	$territory = (string)$_GET['c'];
 }
 
-$mongodb_query = new MongoDB\Driver\Query(['_id' => $country]);
-$record = $mongodb_manager->executeQuery('ac.countries', $mongodb_query)->toArray();
+$mongodb_query = new MongoDB\Driver\Query(['_id' => $territory]);
+$record = $mongodb_manager->executeQuery('ac.territories', $mongodb_query)->toArray();
 if(!$record) {
 	echo 'Page not found';
 	http_response_code(404);
@@ -15,7 +15,7 @@ if(!$record) {
 }
 
 $filter = [
-	'country' => $country,
+	'territory' => $territory,
 	'available' => false
 ];
 $mongodb_query = new MongoDB\Driver\Query($filter);

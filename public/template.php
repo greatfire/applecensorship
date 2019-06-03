@@ -10,6 +10,12 @@ require_once dirname(__DIR__) . '/inc/main.inc';
 <style>
 body {
 	font-family: sans-serif;
+	margin: 1vw;
+}
+@media only screen and (max-width: 500px) {
+	body {
+		font-size: 4vw;
+	}
 }
 h1 a, h2 a {
 	color: black;
@@ -25,7 +31,7 @@ h2 {
 	box-sizing: border-box;
 	font-size: 150%;
 	max-width: 100%;
-	padding: 1%;
+	padding: 1vw;
 }
 table {
 	max-width: 100%;
@@ -35,14 +41,18 @@ tbody {
 th, td {
 	border-collapse: separate;
 	border-spacing: 0px;
-	padding: 10px;
+	padding: 1vw;
+	vertical-align: top;
 }
 th {
 	cursor: pointer;
 	text-align: left;
 }
 th select {
-	max-width: 50px;
+	max-width: 100px;
+}
+td {
+	word-break: break-all;
 }
 td.a {
 	border: solid 2px green;
@@ -52,10 +62,11 @@ td.na {
 	font-weight: bold;
 }
 td img {
+	margin-right: 1vw;
 	max-width: 50px;
 }
 
-#feedback {
+#searches, #feedback {
 	margin-top: 100px;
 }
 #feedback span {
@@ -75,9 +86,10 @@ td img {
 	display: block;
 }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mithril/1.1.6/mithril.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.17/vue.min.js"></script>
-<script src="md5.min.js"></script>
+<script src="https://unpkg.com/mithril@1.1.6/mithril.min.js"></script>
+<script src="https://unpkg.com/vue@2.6.10/dist/vue.min.js"></script>
+<script src="https://unpkg.com/vue-lazyload@1.2.6/vue-lazyload.js"></script>
+<script src="/md5.min.js"></script>
 <script>
 (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
 (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),

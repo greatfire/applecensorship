@@ -1,5 +1,14 @@
 <?php
 require 'template.php';
+
+$mongodb_query = new MongoDB\Driver\Query([], [
+	'limit' => 10
+]);
+$searches = [];
+$rows = $mongodb_manager->executeQuery('ac.searches', $mongodb_query);
+foreach ($rows as $row) {
+	$searches[] = $row->_id;
+}
 ?>
 	<div id="app">
 		<div id="search"><input type="text" v-model="term" @input="searchAll" ref="term" autofocus placeholder="Search the App Store"></div>
@@ -33,6 +42,13 @@ require 'template.php';
 			</tbody>
 		</table>
 		<div v-if="!loading && apps.length == 0 && term.length > 0">No matches</div>
+		<div id="searches">
+			<h2>Popular searches</h2>
+			<ol>
+			<?php foreach($searches as $search) { ?>
+				<li><a href="#" @click.prevent="setTerm('<?php print $search ?>')"><?php print $search ?></a></li>
+			<?php } ?>
+			</ol>
 		<div id="feedback">
 			<div v-if="!show_feedback">
 				Did you find a bug or do you have an idea for how to improve this website?
@@ -283,6 +299,10 @@ require 'template.php';
 						alert('Something went wrong, please try again later.');
 					}
 				});
+			},
+			setTerm(term) {
+				this.term = term;
+				this.searchAll();
 			},
 			sortApps() {
 				if(this.sortAppsByTerritoryIndex != null) {

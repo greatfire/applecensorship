@@ -17,22 +17,21 @@ $mongodb_query = new MongoDB\Driver\Query([
 ]);
 $rows = $mongodb_manager->executeQuery('ac.statuses', $mongodb_query);
 $groups = [];
-$countries = [];
+$territories = [];
 $details = [];
 foreach($rows as $row) {
+	if(!isset($row->territory)) {
+		continue;
+	}
+
 	$t = date('Y-m-d', $row->ts);
 
 	if(isset($url_match[4]) && $url_match[4] == $t) {
-		if(isset($url_match[3]) && $url_match[3] == $row->country) {
+		if(isset($url_match[3]) && $url_match[3] == $row->territory) {
 			$mongodb_query = new MongoDB\Driver\Query([
 				'_id' => $row->main_id
 			]);
 			$main_rows = $mongodb_manager->executeQuery('ac.main', $mongodb_query)->toArray();
-			if(!$main_rows) {
-				print_r($main_rows);
-				exit;
-				continue;
-			}
 			$main_row = $main_rows[0];
 			unset($main_row->_id);
 			$details[] = $main_row;
@@ -40,9 +39,9 @@ foreach($rows as $row) {
 		}
 	}
 
-	$groups[$t][$row->country][] = $row;
-	if(!in_array($row->country, $countries)) {
-		$countries[] = $row->country;
+	$groups[$t][$row->territory][] = $row;
+	if(!in_array($row->territory, $territories)) {
+		$territories[] = $row->territory;
 	}
 }
 
@@ -52,20 +51,27 @@ if($details) {
 	exit;
 }
 
-sort($countries);
+sort($territories);
 
 require '../template.php';
+
+if(!$app) {
+	print '<h3>' . $id . '</h3>';
+	print '<p>No data found for this app. Perhaps it has not yet been added to our database. Please come back later or <a href="' . get_itunes_url('US', 'unknown', $id) . '" target="_blank">search the App Store</a>.';
+	exit;
+}
 ?>
-	<h1><?php print $app->name ?></h1>
-	<p>Average ranking: <?php print round($app->ranking) ?></p>
+	<h3><?php print $app->name ?></h3>
+	<img src="<?php print $app->artwork ?>">
+	<p>Number of user ratings: <?php print round($app->userRatingCount) ?></p>
 	<table>
 	<thead>
 		<tr>
 			<th></th>
 			<?php
-			foreach($countries as $country) {
+			foreach($territories as $territory) {
 			?>
-			<th><?php print get_territory_name($country) ?></th>
+			<th><a href="/na/<?php print $territory ?>"><?php print get_territory_name($territory) ?></a></th>
 			<?php
 			}
 		?>
@@ -73,16 +79,16 @@ require '../template.php';
 		<tr>
 			<th>Date</th>
 			<?php
-			foreach($countries as $country) {
+			foreach($territories as $territory) {
 			?>
 			<th>
 				<?php 
-				$app_name_country = get_app_name($id, $country);
-				if(!$app_name_country) {
-					$app_name_country = $app->name;
+				$app_name_territory = get_app_name($id, $territory);
+				if(!$app_name_territory) {
+					$app_name_territory = $app->name;
 				}
 				?>
-				<a href="<?php print get_itunes_url($country, $app_name_country, $id) ?>" target="_blank"><?php print $app_name_country ?></a>
+				<a href="<?php print get_itunes_url($territory, $app_name_territory, $id) ?>" target="_blank"><?php print $app_name_territory ?></a>
 			</th>
 			<?php
 			}
@@ -96,29 +102,29 @@ require '../template.php';
 		<tr>
 			<td><?php print $t ?></td>
 			<?php
-			foreach($countries as $country) {
+			foreach($territories as $territory) {
 				$td_class = '';
 				$td_v = '';
 				$a_ids = [];
-				if(isset($cs[$country])) {
-					$pc = round(100 * array_reduce($cs[$country], function($v, $w) {
+				if(isset($cs[$territory])) {
+					$pc = round(100 * array_reduce($cs[$territory], function($v, $w) {
 						$v += $w->available;
 						return $v;
-					}) / count($cs[$country]));
+					}) / count($cs[$territory]));
 					if($pc == 100) {
 						$td_class = 'a';
 					} elseif($pc == 0) {
 						$td_class = 'na';
 					}
 					$td_v = $pc . '%';
-					foreach($cs[$country] as $v) {
+					foreach($cs[$territory] as $v) {
 						$a_ids[] = $v->_id;
 					}
 				} else {
 					$td_v = '-';
 				}
 				?>
-			<td class="<?php print $td_class ?>"><a href="/app/<?php print $id ?>/<?php print $country ?>/<?php print $t ?>"><?php print $td_v ?></a></td>
+			<td class="<?php print $td_class ?>"><a href="/app/<?php print $id ?>/<?php print $territory ?>/<?php print $t ?>"><?php print $td_v ?></a></td>
 			<?php
 			}
 			?>

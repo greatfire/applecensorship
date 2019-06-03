@@ -3,7 +3,7 @@
 const ITUNES_API_URL='https://itunes.apple.com/search';
 
 const VALID_REQUEST_KEYS = [
-	'country',
+	'territory',
 	'limit',
 	'media',
 	'term'
@@ -20,13 +20,13 @@ function fatal($message)
 	exit();
 }
 
-function get_app_genre($id, $country = null) {
+function get_app_genre($id, $territory = null) {
 	global $mongodb_manager;
 	$filter = [
 		'_id.id' => $id
 	];
-	if($country) {
-		$filter['_id.country'] = $country;
+	if($territory) {
+		$filter['_id.territory'] = $territory;
 	}
 	$mongodb_query = new MongoDB\Driver\Query($filter);
 	$rows = $mongodb_manager->executeQuery('ac.app_genres', $mongodb_query);
@@ -46,11 +46,11 @@ function get_app($id) {
 	}
 }
 
-function get_app_name($id, $country = null) {
+function get_app_name($id, $territory = null) {
 	global $mongodb_manager;
-	if($country) {
+	if($territory) {
 		$mongodb_query = new MongoDB\Driver\Query([
-			'_id.country' => $country,
+			'_id.territory' => $territory,
 			'_id.id' => $id
 		]);
 		$rows = $mongodb_manager->executeQuery('ac.app_names', $mongodb_query);
@@ -65,8 +65,8 @@ function get_app_name($id, $country = null) {
 	}
 }
 
-function get_itunes_url($country, $name, $id) {
-	return 'https://itunes.apple.com/' . strtolower($country) . '/app/' . urlencode($name) . '/id' . $id;
+function get_itunes_url($territory, $name, $id) {
+	return 'https://itunes.apple.com/' . strtolower($territory) . '/app/' . urlencode($name) . '/id' . $id;
 }
 
 function get_territories() {
@@ -83,6 +83,9 @@ function get_territories() {
 
 function get_territory_name($code) {
 	$territories = get_territories();
+	if(!isset($territories[$code])) {
+		return trigger_error('Unknown terrirotory: [' . $code . ']');
+	}
 	return $territories[$code];
 }
 
