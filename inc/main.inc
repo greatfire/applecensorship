@@ -3,7 +3,7 @@
 const ITUNES_API_URL='https://itunes.apple.com/search';
 
 const VALID_REQUEST_KEYS = [
-	'territory',
+	'country',
 	'limit',
 	'media',
 	'term'
@@ -38,7 +38,7 @@ function get_app_genre($id, $territory = null) {
 function get_app($id) {
 	global $mongodb_manager;
 	$mongodb_query = new MongoDB\Driver\Query([
-		'_id' => $id
+		'_id' => (int)$id
 	]);
 	$rows = $mongodb_manager->executeQuery('ac.apps', $mongodb_query)->toArray();
 	if($rows) {
@@ -93,6 +93,36 @@ function h404() {
 	echo 'Page not found';
 	http_response_code(404);
 	exit;
+}
+
+function itunes_api_proxy_request($request) {
+	$url = ITUNES_API_URL;
+	$url .= '?' . http_build_query($request);
+
+	for ($i = 0; $i < 99; $i ++) {
+		$timeout = 10 + pow($i, 2);
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, $url);
+		curl_setopt($ch, CURLOPT_PROXY, PROXY);
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+		$json = curl_exec($ch);
+		curl_close($ch);
+
+		$response = json_decode($json);
+		if(!$response) {
+			continue;
+		}
+
+		if(!isset($response->resultCount)) {
+			continue;
+		}
+
+		save_request_response($request, $response, 'server');
+
+		return $json;
+	}
 }
 
 function mongo_write($data) {

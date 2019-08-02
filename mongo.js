@@ -22,6 +22,7 @@ db.main.aggregate([
 				}
 			},
 			resultCount: '$response.resultCount',
+			ts: '$ts',
 			userRatingCount: '$response.results.userRatingCount'
 		}
 	}, {
@@ -41,6 +42,9 @@ db.main.aggregate([
 			},
 			userRatingCount: {
 				$last: '$userRatingCount'
+			},
+			ts: {
+				$max: '$ts'
 			}
 		}
 	}, {
@@ -67,6 +71,9 @@ db.app_names.aggregate([
 			ranking: {
 				$avg: '$ranking'
 			},
+			ts: {
+				$max: '$ts'
+			},
 			userRatingCount: {
 				$avg: '$userRatingCount'
 			}
@@ -78,6 +85,7 @@ db.app_names.aggregate([
 			artwork: '$artwork',
 			count: '$count',
 			ranking: '$ranking',
+			ts: '$ts',
 			userRatingCount: '$userRatingCount'
 		}
 	}, {
@@ -96,6 +104,9 @@ db.app_names.aggregate([
 			},
 			ranking: {
 				$avg: '$ranking'
+			},
+			ts: {
+				$max: '$ts'
 			},
 			userRatingCount: {
 				$avg: '$userRatingCount'
@@ -265,14 +276,82 @@ db.statuses.aggregate([
 				territory: '$territory'
 			},
 			available: {
+				$avg: {
+					$cond: {
+						if: '$available',
+						then: 1,
+						else: 0
+					}
+				}
+			}
+		}
+	}, {
+		$project: {
+			_id: false,
+			id: '$_id.id',
+			territory: '$_id.territory',
+			available: '$available',
+			dissonance: {
+				$subtract: [.5, {
+					$abs: {
+						$subtract: ['$available', .5]
+					}
+				}]
+			}
+		}
+	}, {
+		$out: 'tmp'
+	}
+]);
+db.tmp.renameCollection('avg_statuses', true);
+print('recreated avg_statuses');
+
+db.avg_statuses.aggregate([
+	{
+		$match: {
+			available: {$gt: 0.0, $lt: 1}
+		}
+	}, {
+		$project: {
+			_id: false,
+			id: '$id',
+			territory: '$territory',
+			available: '$available',
+			dissonance: {
+				$subtract: [.5, {
+					$abs: {
+						$subtract: ['$available', .5]
+					}
+				}]
+			}
+		}
+	}, {
+		$out: 'tmp'
+	}
+]);
+db.tmp.renameCollection('avg_status_dissonance', true);
+print('recreated avg_status_dissonance');
+
+db.statuses.aggregate([
+	{
+		$group: {
+			_id: {
+				id: '$id',
+				territory: '$territory'
+			},
+			available: {
 				$last: '$available'
+			},
+			ts: {
+				$max: '$ts'
 			}
 		}
 	}, {
 		$project: {
 			id: '$_id.id',
 			territory: '$_id.territory',
-			available: '$available'
+			available: '$available',
+			ts: '$ts'
 		}
 	}, {
 		$out: 'tmp'
@@ -319,17 +398,17 @@ db.last_statuses.aggregate([
 			foreignField: '_id.id',
 			as: 'app_genre'
 		}
-        }, {
+	}, {
 		$unwind: {
 			path: '$app_genre',
 			preserveNullAndEmptyArrays: false
 		}
 	}, {
-                $match: {
-                        'app_genre._id.territory': {
-                                $eq: 'US'
-                        }
-                }
+		$match: {
+			'app_genre._id.territory': {
+				$eq: 'US'
+			}
+		}
 	}, {
 		$group: {
 			_id: {
@@ -361,3 +440,5 @@ db.last_statuses.aggregate([
 ]);
 db.tmp.renameCollection('territory_genres', true);
 print('recreated territory_genres');
+
+print('mongo.js done');

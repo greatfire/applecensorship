@@ -49,6 +49,7 @@ foreach ($rows as $row) {
 				<li><a href="#" @click.prevent="setTerm('<?php print $search ?>')"><?php print $search ?></a></li>
 			<?php } ?>
 			</ol>
+		</div>
 		<div id="feedback">
 			<div v-if="!show_feedback">
 				Did you find a bug or do you have an idea for how to improve this website?
@@ -303,6 +304,7 @@ foreach ($rows as $row) {
 			setTerm(term) {
 				this.term = term;
 				this.searchAll();
+				window.scrollTo(0, 0);
 			},
 			sortApps() {
 				if(this.sortAppsByTerritoryIndex != null) {
