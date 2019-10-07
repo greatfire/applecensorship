@@ -7,11 +7,12 @@ $mongodb_query = new MongoDB\Driver\Query([], [
 $searches = [];
 $rows = $mongodb_manager->executeQuery('ac.searches', $mongodb_query);
 foreach ($rows as $row) {
-	$searches[] = $row->_id;
+	$searches[] = trim($row->_id);
 }
+$searches = array_unique($searches);
 ?>
 	<div id="app">
-		<div id="search"><input type="text" v-model="term" @input="searchAll" ref="term" autofocus placeholder="Search the App Store"></div>
+		<div id="search"><input type="text" v-model="term" @input="searchAll" ref="term" autofocus placeholder="<?php p('Search the App Store') ?>"></div>
 		<table>
 			<thead>
 				<th :style="{ width: columnWidth }" v-for="territory in territoriesActive" @click="sortAppsBy">{{ territory.name }}</th>
@@ -43,7 +44,7 @@ foreach ($rows as $row) {
 		</table>
 		<div v-if="!loading && apps.length == 0 && term.length > 0">No matches</div>
 		<div id="searches">
-			<h2>Popular searches</h2>
+			<h3><?php p('Popular searches') ?></h3>
 			<ol>
 			<?php foreach($searches as $search) { ?>
 				<li><a href="#" @click.prevent="setTerm('<?php print $search ?>')"><?php print $search ?></a></li>
@@ -52,15 +53,15 @@ foreach ($rows as $row) {
 		</div>
 		<div id="feedback">
 			<div v-if="!show_feedback">
-				Did you find a bug or do you have an idea for how to improve this website?
-				<br><span @click.stop="show_feedback = true">Please tell us what you think</span>.
+				<?php p('Did you find a bug or do you have an idea for how to improve this website') ?>
+				<br><span @click.stop="show_feedback = true"><?php p('Please tell us what you think') ?></span>.
 			</div>
 			<div v-if="show_feedback">
-				<p>Please send a message to support@greatfire.org or fill in this form. We appreciate your feedback.</p>
-				<textarea placeholder="Message" v-model="feedback_message">
+				<p><?php pf('Please send a message to $1 or fill in this form. We appreciate your feedback.', 'support@greatfire.org') ?></p>
+				<textarea placeholder="<?php p('Message') ?>" v-model="feedback_message">
 				</textarea>
-				<input type="text" placeholder="Email address (optional)" v-model="feedback_email">
-				<button @click.stop="send_feedback()">Send</button>
+				<input type="text" placeholder="<?php p('Email address optional') ?>" v-model="feedback_email">
+				<button @click.stop="send_feedback()"><?php p('Send') ?></button>
 			</div>
 		</div>
 		<div>
@@ -294,10 +295,10 @@ foreach ($rows as $row) {
 				}
 				ga('send', 'event', 'feedback', this.feedback_message, this.feedback_email, {
 					hitCallback: () => {
-						alert('Thank you for your feedback!');
+						alert('<?php p('Thank you for your feedback!') ?>');
 					},
 					hitCallbackFail: () => {
-						alert('Something went wrong, please try again later.');
+						alert('<?php p('Something went wrong, please try again later.') ?>');
 					}
 				});
 			},
@@ -360,6 +361,9 @@ foreach ($rows as $row) {
 			this.$refs.term.focus();
 			this.addTerritoryFromCode('US');
 			this.addTerritoryFromCode('CN');
+		},
+		updated: function() {
+			this.setL();
 		}
 	});
 	</script>

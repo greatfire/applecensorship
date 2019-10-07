@@ -70,11 +70,11 @@ foreach($urls as $url) {
 // Add apps that haven't been tested in a long time
 $mongodb_query = new MongoDB\Driver\Query([], [
 	'sort' => [
-		'ts' => 1
+		'last_ts' => 1
 	],
 	'limit' => 70
 ]);
-$rows = $mongodb_manager->executeQuery('ac.last_statuses', $mongodb_query);
+$rows = $mongodb_manager->executeQuery('ac.agg_statuses', $mongodb_query);
 foreach($rows as $row) {
 	if(!isset($ids[$row->id])) {
 		$ids[$row->id] = [];
@@ -97,7 +97,7 @@ foreach($rows as $row) {
 	$ids[$row->id][] = $row->territory;
 }
 
-shuffle_assoc($ids, 100);
+shuffle_assoc($ids, 10);
 
 foreach($ids as $id => $territory_ids) {
 	$territory_ids = array_merge($territory_ids, $general_territory_ids);

@@ -1,2 +1,2 @@
 RewriteEngine On
-RewriteRule . index.php
+RewriteRule ^(\d+)(/(.+?)/(.+?)$)? index.php [E=ID:$1,E=TERRITORY:$3,E=DATE:$4]

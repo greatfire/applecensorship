@@ -1,4 +1,47 @@
-db.main.aggregate([
+function recreate(src, pipeline, index, dest, merge) {
+	let start = Date.now();
+	if(merge) {
+		last_op = {
+			$merge: {
+				into: 'tmp'
+			}
+		};
+	} else {
+		last_op = {
+			$out: 'tmp'
+		};
+	}
+	pipeline.push(last_op);
+	src.aggregate(pipeline, {
+		allowDiskUse: true
+	});
+	db.tmp.ensureIndex(index);
+	if(dest != 'tmp') {
+		db.tmp.renameCollection(dest, true);
+	}
+	print('recreated ' + dest + ' in ' + (Date.now() - start) + ' milliseconds');
+}
+
+// main -> app_genres
+db.main.ensureIndex({'response.results.trackId': 1, 'request.country': 1});
+recreate(db.main, [
+	{
+		$unwind: '$response.results'
+	}, {
+		$group: {
+			_id: {
+				id: '$response.results.trackId',
+				territory: '$request.country'
+			},
+			genre: {
+				$last: '$response.results.primaryGenreName'
+			}
+		}
+	}
+], {'_id.id': 1, '_id.territory': 1}, 'app_genres');
+
+// main -> app_names
+recreate(db.main, [
 	{
 		$unwind: {
 			path: '$response.results',
@@ -47,15 +90,76 @@ db.main.aggregate([
 				$max: '$ts'
 			}
 		}
-	}, {
-		$out: 'tmp'
 	}
-]);
-db.tmp.ensureIndex({'_id.id': 1, '_id.territory': 1});
-db.tmp.renameCollection('app_names', true);
-print('recreated app_names');
+], {'_id.id': 1, '_id.territory': 1}, 'app_names');
 
-db.app_names.aggregate([
+// main -> numeric_requests
+recreate(db.main, [
+	{
+		$project: {
+			id: {
+				$convert: {
+					input: '$request.term',
+					to: 'int',
+					onError: null
+				}
+			},
+			territory: '$request.country',
+			main_id: '$_id',
+			resultCount: '$response.resultCount',
+			ts: '$ts'
+		}
+	}, {
+		$match: {
+			'id': {
+				$ne: null
+			}
+		}
+	}
+], {id: 1}, 'numeric_requests');
+
+// main -> searches
+recreate(db.main, [
+	{
+		$match: {
+			'ts': {
+				$gt: Math.round(new Date().getTime() / 1000) - 60 * 60 * 24 * 7
+			}
+		}
+	},
+	{
+		$project: {
+			_id: {
+				$toLower: '$request.term'
+			},
+			numericTerm: {
+				$convert: {
+					input: '$request.term',
+					to: 'int',
+					onError: null
+				}
+			}
+		}
+	}, {
+		$match: {
+			'numericTerm': null
+		}
+	}, {
+		$group: {
+			_id: '$_id',
+			count: {
+				$sum: 1
+			}
+		}
+	}, {
+		$sort: {
+			count: -1
+		}
+	}
+], {}, 'searches');
+
+// app_names -> app_basics
+recreate(db.app_names, [
 	{
 		$group: {
 			_id: {
@@ -112,106 +216,11 @@ db.app_names.aggregate([
 				$avg: '$userRatingCount'
 			}
 		}
-	}, {
-		$out: 'tmp'
 	}
-]);
-db.tmp.renameCollection('apps', true);
-print('recreated apps');
+], {_id: 1}, 'app_basics');
 
-db.main.aggregate([
-	{
-		$unwind: '$response.results'
-	}, {
-		$group: {
-			_id: {
-				id: '$response.results.trackId',
-				territory: '$request.country'
-			},
-			genre: {
-				$last: '$response.results.primaryGenreName'
-			}
-		}
-	}, {
-		$out: 'tmp'
-	}
-]);
-db.tmp.ensureIndex({'_id.id': 1, '_id.territory': 1});
-db.tmp.renameCollection('app_genres', true);
-print('recreated app_genres');
-
-db.main.aggregate([
-	{
-		$match: {
-			'ts': {
-				$gt: Math.round(new Date().getTime() / 1000) - 60 * 60 * 24 * 7
-			}
-		}
-	},
-	{
-		$project: {
-			_id: {
-				$toLower: '$request.term'
-			},
-			numericTerm: {
-				$convert: {
-					input: '$request.term',
-					to: 'int',
-					onError: null
-				}
-			}
-		}
-	}, {
-		$match: {
-			'numericTerm': null
-		}
-	}, {
-		$group: {
-			_id: '$_id',
-			count: {
-				$sum: 1
-			}
-		}
-	}, {
-		$sort: {
-			count: -1
-		}
-	}, {
-		$out: 'tmp'
-	}
-]);
-db.tmp.renameCollection('searches', true);
-print('recreated searches');
-
-db.main.aggregate([
-	{
-		$project: {
-			id: {
-				$convert: {
-					input: '$request.term',
-					to: 'int',
-					onError: null
-				}
-			},
-			territory: '$request.country',
-			main_id: '$_id',
-			resultCount: '$response.resultCount',
-			ts: '$ts'
-		}
-	}, {
-		$match: {
-			'id': {
-				$ne: null
-			}
-		}
-	}, {
-		$out: 'tmp'
-	}
-]);
-db.tmp.renameCollection('numeric_requests', true);
-print('recreated numeric_requests');
-
-db.apps.aggregate([
+// app_basics + numeric_requests -> tmp
+recreate(db.app_basics, [
 	{
 		$lookup: {
 			from: 'numeric_requests',
@@ -237,14 +246,11 @@ db.apps.aggregate([
 				else: false
 			} }
 		}
-	}, {
-		$out: 'tmp'
 	}
-]);
-db.tmp.renameCollection('statuses1', true);
-print('recreated statuses1');
+], {id: 1, territory: 1, ts: 1}, 'tmp');
 
-db.main.aggregate([
+// main -> tmp (merge)
+recreate(db.main, [
 	{
 		$unwind: '$response.results'
 	}, {
@@ -256,19 +262,23 @@ db.main.aggregate([
 			ts : '$ts',
 			available: { $literal: true }
 		}
-	}, {
-		$out: 'tmp'
 	}
-]);
-db.tmp.renameCollection('statuses2', true);
-print('recreated statuses2');
+], {id: 1, territory: 1, ts: 1}, 'tmp', true);
 
-db.statuses1.copyTo('tmp');
-db.statuses2.copyTo('tmp');
-db.tmp.renameCollection('statuses', true);
-print('recreated statuses');
+// tmp -> statuses
+recreate(db.tmp, [
+	{
+		$sort: {
+			id: 1,
+			territory: 1,
+			ts: 1
+		}
+	}
+], {id: 1, territory: 1, ts: 1}, 'statuses');
+db.statuses.ensureIndex({ts: 1});
 
-db.statuses.aggregate([
+// statuses -> avg_statuses
+recreate(db.statuses, [
 	{
 		$group: {
 			_id: {
@@ -299,14 +309,11 @@ db.statuses.aggregate([
 				}]
 			}
 		}
-	}, {
-		$out: 'tmp'
 	}
-]);
-db.tmp.renameCollection('avg_statuses', true);
-print('recreated avg_statuses');
+], {}, 'avg_statuses');
 
-db.avg_statuses.aggregate([
+// statuses -> avg_status_dissonance
+recreate(db.statuses, [
 	{
 		$match: {
 			available: {$gt: 0.0, $lt: 1}
@@ -325,42 +332,144 @@ db.avg_statuses.aggregate([
 				}]
 			}
 		}
-	}, {
-		$out: 'tmp'
 	}
-]);
-db.tmp.renameCollection('avg_status_dissonance', true);
-print('recreated avg_status_dissonance');
+], {}, 'avg_status_dissonance');
 
-db.statuses.aggregate([
+// statuses -> agg_statuses
+recreate(db.statuses, [
 	{
 		$group: {
 			_id: {
 				id: '$id',
 				territory: '$territory'
 			},
-			available: {
+			last_available: {
 				$last: '$available'
 			},
-			ts: {
-				$max: '$ts'
+			min_available: {
+				$min: '$available'
+			},
+			max_available: {
+				$max: '$available'
+			},
+			last_ts: {
+				$last: '$ts'
+			},
+			last_available_ts: {
+				$max: {
+					$cond: {
+						if: { $eq: ['$available', true] },
+						then: '$ts',
+						else: 0
+					}
+				}
+			},
+			last_unavailable_ts: {
+				$max: {
+					$cond: {
+						if: { $eq: ['$available', false] },
+						then: '$ts',
+						else: 0
+					}
+				}
 			}
 		}
 	}, {
 		$project: {
 			id: '$_id.id',
 			territory: '$_id.territory',
-			available: '$available',
-			ts: '$ts'
+			last_available: '$last_available',
+			min_available: '$min_available',
+			max_available: '$max_available',
+			last_ts: '$ts',
+			last_available_ts: '$last_available_ts',
+			last_unavailable_ts: '$last_unavailable_ts'
+		}
+	}
+], {}, 'agg_statuses');
+
+// agg_statuses + app_basics -> apps
+recreate(db.agg_statuses, [
+	{
+		$group: {
+			_id: '$id',
+			territories: {
+				$sum: 1
+			},
+			available: {
+				$sum: {
+					$cond: {
+						if: { $eq: ['$last_available', true] },
+						then: 1,
+						else: 0
+					}
+				}
+			},
+			last_available_ts: {
+				$max: '$last_available_ts'
+			},
+			last_unavailable_ts: {
+				$max: '$last_unavailable_ts'
+			}
 		}
 	}, {
-		$out: 'tmp'
+		$lookup: {
+			from: 'app_basics',
+			localField: '_id',
+			foreignField: '_id',
+			as: 'app'
+		}
+	}, {
+		$unwind: {
+			path: '$app'
+		}
+	}, {
+		$project: {
+			_id: '$_id',
+			name: '$app.name',
+			artwork: '$app.artwork',
+			ranking: '$app.ranking',
+			ts: '$app.ts',
+			userRatingCount: '$app.userRatingCount',
+			territories: '$territories',
+			available: '$available',
+			last_available_ts: '$last_available_ts',
+			last_unavailable_ts: '$last_unavailable_ts'
+		}
 	}
-]);
-db.tmp.renameCollection('last_statuses', true);
-print('recreated last_statuses');
+], {}, 'apps');
 
-db.last_statuses.aggregate([
+// apps -> available_app_ids
+recreate(db.apps, [
+	{
+		$match: {
+			available: {
+ 				$gt: 0
+			}
+		}
+	}, {
+		$project: {
+			_id: '$_id'
+		}
+	}
+], {}, 'available_app_ids');
+
+// agg_statuses -> territories
+recreate(db.agg_statuses, [
+	{
+		$lookup: {
+			from: 'available_app_ids',
+			localField: 'id',
+			foreignField: '_id',
+			as: 'available_app_id'
+		}
+	}, {
+		$match: {
+			available_app_id: {
+				$ne: []
+			}
+		}
+	},
 	{
 		$group: {
 			_id: '$territory',
@@ -370,7 +479,7 @@ db.last_statuses.aggregate([
 			apps_unavailable: {
 				$sum: {
 					$cond: {
-						if: { $eq: ['$available', true] },
+						if: { $eq: ['$last_available', true] },
 						then: 0,
 						else: 1
 					}
@@ -379,18 +488,29 @@ db.last_statuses.aggregate([
 		}
 	}, {
 		$match: {
-			'_id': {
+			_id: {
 				$ne: null
 			}
 		}
-	}, {
-		$out: 'tmp'
 	}
-]);
-db.tmp.renameCollection('territories', true);
-print('recreated territories');
+], {}, 'territories');
 
-db.last_statuses.aggregate([
+// agg_statuses + app_genres -> territory_genres
+recreate(db.agg_statuses, [
+	{
+		$lookup: {
+			from: 'available_app_ids',
+			localField: 'id',
+			foreignField: '_id',
+			as: 'available_app_id'
+		}
+	}, {
+		$match: {
+			available_app_id: {
+				$ne: []
+			}
+		}
+	},
 	{
 		$lookup: {
 			from: 'app_genres',
@@ -421,7 +541,7 @@ db.last_statuses.aggregate([
 			apps_unavailable: {
 				$sum: {
 					$cond: {
-						if: { $eq: ['$available', true] },
+						if: { $eq: ['$last_available', true] },
 						then: 0,
 						else: 1
 					}
@@ -434,11 +554,7 @@ db.last_statuses.aggregate([
 				$ne: null
 			}
 		}
-	}, {
-		$out: 'tmp'
 	}
-]);
-db.tmp.renameCollection('territory_genres', true);
-print('recreated territory_genres');
+], {}, 'territory_genres');
 
 print('mongo.js done');

@@ -2,7 +2,8 @@
 
 require '../template.php';
 
-if(preg_match('#/na/(.+)$#', $_SERVER['REQUEST_URI'], $match)) {
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if(preg_match('#/na/(.+)$#', $path, $match)) {
 	$territory = (string)$match[1];
 	$territory = strtoupper($territory);
 	require 'territory.inc';

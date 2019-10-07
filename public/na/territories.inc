@@ -23,9 +23,9 @@ foreach($mongodb_manager->executeQuery('ac.territories', $mongodb_query) as $row
 	<table>
 		<thead>
 			<tr>
-				<th @click="sort('name')">App Store</th>
-				<th @click="sort('news_unavailable')">Number of unavailable news apps</th>
-				<th @click="sort('apps_unavailable')">Number of unavailable apps</th>
+				<th @click="sort('name')"><?php p('App Store') ?></th>
+				<th @click="sort('news_unavailable')"><?php p('Number of unavailable news apps') ?></th>
+				<th @click="sort('apps_unavailable')"><?php p('Number of unavailable apps') ?></th>
 			</tr>
 		</thead>
 		<tbody>
@@ -62,6 +62,9 @@ new Vue({
 		sort: function(s) {
 			this.sortBy = s;
 		}
+	},
+	updated: function() {
+		this.setL();
 	}
 });
 </script>

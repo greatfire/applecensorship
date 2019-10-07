@@ -2,8 +2,8 @@
 
 require '../../inc/main.inc';
 
-if(preg_match('#/app/(\d+)(/([^/]+)/([^/]+))?$#', $_SERVER['REQUEST_URI'], $url_match)) {
-	$id = (int)$url_match[1];
+if(isset($_SERVER['REDIRECT_ID'])) {
+	$id = (int)$_SERVER['REDIRECT_ID'];
 } else {
 	http_response_code(404);
 	exit;
@@ -26,8 +26,8 @@ foreach($rows as $row) {
 
 	$t = date('Y-m-d', $row->ts);
 
-	if(isset($url_match[4]) && $url_match[4] == $t) {
-		if(isset($url_match[3]) && $url_match[3] == $row->territory) {
+	if(isset($_SERVER['REDIRECT_TERRITORY']) && $_SERVER['REDIRECT_TERRITORY'] == $row->territory) {
+		if(isset($_SERVER['REDIRECT_DATE']) && $_SERVER['REDIRECT_DATE'] == $t) {
 			$mongodb_query = new MongoDB\Driver\Query([
 				'_id' => $row->main_id
 			]);
@@ -57,13 +57,14 @@ require '../template.php';
 
 if(!$app) {
 	print '<h3>' . $id . '</h3>';
-	print '<p>No data found for this app. Perhaps it has not yet been added to our database. Please come back later or <a href="' . get_itunes_url('US', 'unknown', $id) . '" target="_blank">search the App Store</a>.';
+	print '<p>' . t('No data found for this app') . '</p>';
 	exit;
 }
 ?>
 	<h3><?php print $app->name ?></h3>
 	<img src="<?php print $app->artwork ?>">
-	<p>Number of user ratings: <?php print round($app->userRatingCount) ?></p>
+	<p><?php pf('Average ranking: $1', round($app->ranking)) ?></p>
+	<p><?php pf('Number of user ratings: $1', round($app->userRatingCount)) ?></p>
 	<table>
 	<thead>
 		<tr>
@@ -77,7 +78,7 @@ if(!$app) {
 		?>
 		</tr>
 		<tr>
-			<th>Date</th>
+			<th><?php p('Date') ?></th>
 			<?php
 			foreach($territories as $territory) {
 			?>

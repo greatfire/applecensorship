@@ -12,6 +12,8 @@ const VALID_REQUEST_KEYS = [
 // Needs to define the following constants: MONGODB_COLLECTION, MONGODB_CONNECTION, PROXY
 require 'local.inc';
 
+require 'localization.inc';
+
 $mongodb_manager = new MongoDB\Driver\Manager(MONGODB_CONNECTION);
 
 function fatal($message)
