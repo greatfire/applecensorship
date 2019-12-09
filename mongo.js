@@ -86,8 +86,11 @@ recreate(db.main, [
 			userRatingCount: {
 				$last: '$userRatingCount'
 			},
-			ts: {
+			last_ts: {
 				$max: '$ts'
+			},
+			first_ts: {
+				$min: '$ts'
 			}
 		}
 	}
@@ -175,8 +178,11 @@ recreate(db.app_names, [
 			ranking: {
 				$avg: '$ranking'
 			},
-			ts: {
-				$max: '$ts'
+			last_ts: {
+				$max: '$last_ts'
+			},
+			first_ts: {
+				$min: '$first_ts'
 			},
 			userRatingCount: {
 				$avg: '$userRatingCount'
@@ -189,7 +195,8 @@ recreate(db.app_names, [
 			artwork: '$artwork',
 			count: '$count',
 			ranking: '$ranking',
-			ts: '$ts',
+			last_ts: '$last_ts',
+			first_ts: '$first_ts',
 			userRatingCount: '$userRatingCount'
 		}
 	}, {
@@ -209,8 +216,11 @@ recreate(db.app_names, [
 			ranking: {
 				$avg: '$ranking'
 			},
-			ts: {
-				$max: '$ts'
+			last_ts: {
+				$max: '$last_ts'
+			},
+			first_ts: {
+				$min: '$first_ts'
 			},
 			userRatingCount: {
 				$avg: '$userRatingCount'
@@ -353,7 +363,16 @@ recreate(db.statuses, [
 				$max: '$available'
 			},
 			last_ts: {
-				$last: '$ts'
+				$max: '$ts'
+			},
+			first_unavailable_ts: {
+				$min: {
+					$cond: {
+						if: { $eq: ['$available', false] },
+						then: '$ts',
+						else: null
+					}
+				}
 			},
 			last_available_ts: {
 				$max: {
@@ -381,7 +400,8 @@ recreate(db.statuses, [
 			last_available: '$last_available',
 			min_available: '$min_available',
 			max_available: '$max_available',
-			last_ts: '$ts',
+			last_ts: '$last_ts',
+			first_unavailable_ts: '$first_unavailable_ts',
 			last_available_ts: '$last_available_ts',
 			last_unavailable_ts: '$last_unavailable_ts'
 		}
@@ -404,6 +424,9 @@ recreate(db.agg_statuses, [
 						else: 0
 					}
 				}
+			},
+			first_unavailable_ts: {
+				$min: '$first_unavailable_ts'
 			},
 			last_available_ts: {
 				$max: '$last_available_ts'
@@ -429,10 +452,12 @@ recreate(db.agg_statuses, [
 			name: '$app.name',
 			artwork: '$app.artwork',
 			ranking: '$app.ranking',
-			ts: '$app.ts',
+			first_ts: '$app.first_ts',
+			last_ts: '$app.last_ts',
 			userRatingCount: '$app.userRatingCount',
 			territories: '$territories',
 			available: '$available',
+			first_unavailable_ts: '$first_unavailable_ts',
 			last_available_ts: '$last_available_ts',
 			last_unavailable_ts: '$last_unavailable_ts'
 		}

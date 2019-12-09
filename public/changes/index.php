@@ -26,7 +26,7 @@ td {
 </style>
 <div id="app">
 	<a href="rss.php"><img id="rss" src="/img/rss.svg"></a>
-	<h3>{{ Object.keys(rows).length }} changes:</h3>
+	<h3><?php pf('$1 detected changes', '{{ Object.keys(rowsFiltered).length }}') ?></h3>
 	<table>
 		<thead>
 			<tr>

@@ -50,6 +50,7 @@ sort($genres);
 ?>
 <div id="app">
 	<h3><?php pf('$1 apps are unavailable in the $2 App Store', count($rows), get_territory_name($territory)) ?></h3>
+	<download-data :data="rows" filename="<?php print $territory ?>"></download-data>
 	<table>
 		<thead>
 			<tr>

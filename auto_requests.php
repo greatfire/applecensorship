@@ -97,7 +97,7 @@ foreach($rows as $row) {
 	$ids[$row->id][] = $row->territory;
 }
 
-shuffle_assoc($ids, 10);
+shuffle_assoc($ids, 100);
 
 foreach($ids as $id => $territory_ids) {
 	$territory_ids = array_merge($territory_ids, $general_territory_ids);

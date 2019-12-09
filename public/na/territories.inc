@@ -20,6 +20,7 @@ foreach($mongodb_manager->executeQuery('ac.territories', $mongodb_query) as $row
 }
 ?>
 <div id="app">
+	<download-data :data="rows" filename="territories"></download-data>
 	<table>
 		<thead>
 			<tr>
